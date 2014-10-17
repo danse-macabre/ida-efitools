@@ -113,7 +113,7 @@ def _prepare_interface(op, struc_name, function, bind_point):
     elif op.type == o_displ:
         lvar_name = op.lvar
         if lvar_name is not None:
-            lvar = find_object(function.lvars(), name=lvar_name)
+            lvar = find_object(function.frame.lvars(), name=lvar_name)
             if lvar is not None:
                 lvar.name = underscore_to_global(struc_name).lstrip('g')
                 return Interface(lvar, bind_point)

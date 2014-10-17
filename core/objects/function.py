@@ -5,7 +5,7 @@ from idautils import *
 from idc import *
 
 from .instruction import Instruction
-from .structure import Structure
+from .structure import Structure, StructureMember
 
 
 class Function:
@@ -37,7 +37,7 @@ class Function:
     def frame(self):
         frame_id = GetFrame(self.__start)
         if frame_id is not None:
-            return Structure(GetStrucName(frame_id), create_new=False)
+            return FunctionFrame(GetStrucName(frame_id), create_new=False)
 
     @property
     def name(self):
@@ -48,7 +48,7 @@ class Function:
         return iter(takewhile(lambda x: x < lvar_size, self.frame))
 
     def lvars(self):
-        return iter(self.frame)
+        pass
 
     def items(self, start=0, stop=None):
         if stop is None:
@@ -69,3 +69,17 @@ class Function:
         if MakeFrame(self.__start, new_lvsize, new_argregs, new_argsize) == -1:
             raise Exception("MakeFrame(0x%X, 0x%X, 0x%X, 0x%X) has failed" %
                             (self.__start, new_lvsize, new_argregs, new_argsize))
+
+
+class FunctionFrame(Structure):
+
+    def lvars(self):
+        m_off = GetFirstMember(self._sid)
+        while m_off != BADADDR and m_off != -1:
+            if GetMemberFlag(self._sid, m_off) != -1:
+                yield LocalVariable(self._sid, m_off)
+            m_off = GetStrucNextOff(self._sid, m_off)
+
+
+class LocalVariable(StructureMember):
+    pass

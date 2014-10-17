@@ -21,8 +21,8 @@ from structure import Structure, StructureMember
 from protocol import ImportProtocol, ExportProtocol, Interface
 from register import Register
 from instruction import Instruction
-from function import Function
+from function import Function, LocalVariable
 
 __all__ = ['GUID', 'Pointer', 'Structure', 'StructureMember',
            'ImportProtocol', 'ExportProtocol', 'Interface',
-           'Register', 'Function', 'Instruction']
+           'Register', 'Function', 'LocalVariable', 'Instruction']
