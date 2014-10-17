@@ -49,6 +49,15 @@ def update_structs_from_xrefs(track_members=True):
                 _update_from_ptr(head_ptr, struc, track_members)
             head = NextHead(head, seg_end)
 
+
+def update_struct_from_lvar(start, lvar, struc, track_members=True):
+    tracks = _create_tracks()
+    tracks[lvar] = struc
+    processed_functions = list()
+    _update_structs_from_tracks(start, tracks, processed_functions,
+                                track_members, stubborn_tracks=False)
+
+
 def _update_from_ptr(ptr, struc, track_members):
     for xref in map(lambda x: Instruction(x), DataRefsTo(ptr.addr)):
         if xref.mnem == 'mov' and xref[0].type == o_reg and \
@@ -248,10 +257,9 @@ def _guess_struct_field(item, op, struc):
         print "Do not know how to extract offset from operand: %s" % op
         return
 
-    if not (type(op.displ) is str and op.displ.endswith('.Dummy')):
-        if find_object(struc.members(), offset=off):
-            # print "%s already got member at offset 0x%X" % (struc, off)
-            return
+    member = find_object(struc.members(), offset=off)
+    if member is not None and member.name != "Dummy":
+        return
 
     if item.mnem == 'call':
         member_size = 8
