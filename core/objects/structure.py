@@ -101,6 +101,14 @@ class StructureMember(object):
         return "%s.%s @ 0x%X" % \
                (GetStrucName(self._sid), self.name, self.offset)
 
+    def __hash__(self):
+        return self.mid
+
+    def __cmp__(self, other):
+        if isinstance(other, StructureMember):
+            return cmp(self.mid, other.mid)
+        raise NotImplementedError
+
     @property
     def name(self):
         return GetMemberName(self._sid, self._offset)
