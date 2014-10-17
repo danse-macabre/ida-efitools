@@ -4,7 +4,7 @@ from idc import *
 
 
 from core import project
-from core.objects import Structure, Pointer, Function, Register, Instruction
+from core.objects import *
 from core.utils import *
 
 
@@ -49,20 +49,6 @@ def update_structs_from_xrefs(track_members=True):
                 _update_from_ptr(head_ptr, struc, track_members)
             head = NextHead(head, seg_end)
 
-
-# def update_structs_from_lvars(lvar_bind_points, track_members=True):
-#     for item, struc in lvar_bind_points.items():
-#         if item.mnem == 'lea' and item[0].type == o_reg:
-#             print "Working on item: %s" % item
-#             tracks = _create_tracks()
-#             processed_functions = list()
-#             tracks.update({item[0].reg: struc})
-#             _update_structs_from_tracks(NextAddr(item.ea), tracks, processed_functions,
-#                                         track_members, stubborn_tracks=False)
-#         else:
-#             print "Skipping item: %s" % item
-
-
 def _update_from_ptr(ptr, struc, track_members):
     for xref in map(lambda x: Instruction(x), DataRefsTo(ptr.addr)):
         if xref.mnem == 'mov' and xref[0].type == o_reg and \
@@ -80,9 +66,8 @@ def _update_from_ptr(ptr, struc, track_members):
 
 def _update_structs_from_tracks(start, tracks, processed_functions,
                                 track_members, stubborn_tracks):
-    lvar_tracks = {}
     rsp = [Register('rsp')]
-    preserved_regs = {}
+    preserved_tracks = {}
 
     try:
         function = Function(start)
@@ -145,7 +130,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
                     rsp.remove(item[0].reg)
                 if item[1].reg in rsp:
                     lvar = _extract_lvar_from_op(function, item[1])
-                    tracks.update({item[0].reg: lvar_tracks.get(lvar)})
+                    tracks.update({item[0].reg: tracks.get(lvar)})
                 if tracks.get(item[1].reg) is not None and track_members:
                     base_struc = tracks[item[1].reg]
                     off = item[1].displ
@@ -160,7 +145,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
                 if item[0].reg in rsp:
                     lvar = _extract_lvar_from_op(function, item[0])
                     if lvar is not None:
-                        lvar_tracks.update({lvar: tracks[item[1].reg]})
+                        tracks.update({lvar: tracks[item[1].reg]})
                         if tracks[item[1].reg] is not None:
                             lvar.name = \
                                 underscore_to_global(tracks[item[1].reg].name)\
@@ -183,19 +168,18 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
                 if item[0].reg in rsp:
                     lvar = _extract_lvar_from_op(function, item[0])
                     if lvar is not None:
-                        lvar_tracks.update({lvar: None})
+                        tracks.update({lvar: None})
 
         elif item.mnem == 'call':
             if item[0].type in [o_imm, o_far, o_near]:
-                for nonvolatile_reg in filter(lambda x: not x.volatile, tracks.keys()):
-                    preserved_regs.update({nonvolatile_reg: tracks[nonvolatile_reg]})
+                _preserve_tracks(tracks, preserved_tracks)
                 _update_structs_from_tracks(item[0].value, tracks, processed_functions,
                                             track_members, stubborn_tracks)
-                for preserved_reg in preserved_regs:
-                    tracks.update({preserved_reg: preserved_regs[preserved_reg]})
+                _restore_tracks(tracks, preserved_tracks)
             else:
-                for volatile_reg in filter(lambda x: x.volatile, tracks.keys()):
-                    tracks[volatile_reg] = None
+                for reg in filter(lambda x: isinstance(x, Register), tracks):
+                    if reg.volatile:
+                        tracks[reg] = None
 
         elif item.mnem not in ['cmp', 'test'] and item.operands_num > 0:
 
@@ -208,11 +192,26 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
                 if item[0].reg is not None and item[0].reg in rsp:
                     lvar = _extract_lvar_from_op(function, item[0])
                     if lvar is not None:
-                        lvar_tracks.update({lvar: None})
+                        tracks.update({lvar: None})
 
         if not (stubborn_tracks or any(tracks.values())):
             # print "Lost tracks at 0x%X in %s" % (item.ea, function)
             break
+
+
+def _preserve_tracks(tracks, preserved_tracks):
+    preserved_tracks = {}
+    for track in tracks:
+        if isinstance(track, Register):
+            if not track.volatile:
+                preserved_tracks.update({track: tracks[track]})
+        elif isinstance(track, LocalVariable):
+            preserved_tracks.update({track: tracks[track]})
+
+
+def _restore_tracks(tracks, preserved_tracks):
+    for track in preserved_tracks:
+        tracks.update({track: preserved_tracks[track]})
 
 
 def _create_tracks():
@@ -222,12 +221,12 @@ def _create_tracks():
 def _extract_lvar_from_op(function, op):
     lvar = None
     if op.lvar is not None:
-        lvar = find_object(function.lvars(), name=op.lvar.split('.')[0])
+        lvar = find_object(function.frame.lvars(), name=op.lvar.split('.')[0])
     if lvar is not None:
         return lvar
     min_spd = GetSpd(GetMinSpd(function.start))
     lvar_off = abs(min_spd) + op.displ
-    lvar = find_object(function.lvars(), offset=lvar_off)
+    lvar = find_object(function.frame.lvars(), offset=lvar_off)
     if lvar is not None:
         return lvar
     # print "Can not extract local variable name from operand %s at 0x%X" % (op, op.ea)
