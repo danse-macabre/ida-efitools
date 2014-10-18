@@ -24,17 +24,19 @@ def _process_function(function):
 
     for item in filter(lambda x: x.mnem == "call", function.items()):
         if item[0].type in [o_displ, o_phrase] and \
-                item[0].stroff in _PROTOCOL_IMPORT_EXPORT_HANDLERS:
-            method_handler, guid_reg, interface_reg = \
-                _PROTOCOL_IMPORT_EXPORT_HANDLERS[item[0].stroff]
-            protocol = method_handler(function, item, guid_reg, interface_reg)
+                item[0].displ_str in _PROTOCOL_IMPORT_EXPORT_HANDLERS:
+            method_handler, guid_reg, interface_reg, protocol_type = \
+                _PROTOCOL_IMPORT_EXPORT_HANDLERS[item[0].displ_str]
+            protocol = method_handler(function, item, guid_reg,
+                                      interface_reg, protocol_type)
             if protocol:
                 discovered_protocols.append(protocol)
 
     return discovered_protocols
 
 
-def _process_single_call(function, call_instr, guid_reg, interface_reg):
+def _process_single_call(function, call_instr, guid_reg,
+                         interface_reg, protocol_type):
     reg_args = _get_call_lea_args(function, call_instr,
                                   guid_reg, interface_reg)
 
@@ -60,12 +62,13 @@ def _process_single_call(function, call_instr, guid_reg, interface_reg):
 
     protocol = find_object(project.protocols, guid=guid)
     if protocol is None:
-       project.protocols.register(guid, struc, interface, call_instr.ea, project.EXPORT_PROTOCOL)
+       project.protocols.register(guid, struc, interface, call_instr.ea, protocol_type)
 
     return protocol
 
 
-def _process_install_multiple_call(function, call_instr):
+def _process_install_multiple_call(function, call_instr, guid_reg,
+                                   interface_reg, protocol_type):
     pass
 
 
@@ -111,7 +114,7 @@ def _prepare_interface(op, struc_name, function, bind_point):
         ptr.type = struc_name + " *"
         return Interface(ptr, bind_point)
     elif op.type == o_displ:
-        lvar_name = op.lvar
+        lvar_name = op.displ_str
         if lvar_name is not None:
             lvar = find_object(function.frame.lvars(), name=lvar_name)
             if lvar is not None:
@@ -126,12 +129,20 @@ def _prepare_interface(op, struc_name, function, bind_point):
 
 
 _PROTOCOL_IMPORT_EXPORT_HANDLERS = {
-    "EFI_BOOT_SERVICES.LocateProtocol": (_process_single_call, 'rcx', 'r8'),
-    "EFI_SMM_RUNTIME_PROTOCOL.LocateProtocol": (_process_single_call, 'rcx', 'r8'),
-    "EFI_BOOT_SERVICES.HandleProtocol": (_process_single_call, 'rdx', 'r8'),
-    "EFI_BOOT_SERVICES.OpenProtocol": (_process_single_call, 'rdx', 'r8'),
-    "EFI_BOOT_SERVICES.InstallProtocolInterface": (_process_single_call, 'rdx', 'r9'),
-    "EFI_SMM_RUNTIME_PROTOCOL.InstallProtocolInterface": (_process_single_call, 'rdx', 'r9'),
-    "EFI_BOOT_SERVICES.InstallMultipleProtocolInterfaces": (_process_install_multiple_call, None, None),
-    "EFI_SMM_RUNTIME_PROTOCOL.InstallMultipleProtocolInterfaces": (_process_install_multiple_call, None, None),
+    "EFI_BOOT_SERVICES.LocateProtocol":
+        (_process_single_call, 'rcx', 'r8', project.IMPORT_PROTOCOL),
+    "EFI_SMM_RUNTIME_PROTOCOL.LocateProtocol":
+        (_process_single_call, 'rcx', 'r8', project.IMPORT_PROTOCOL),
+    "EFI_BOOT_SERVICES.HandleProtocol":
+        (_process_single_call, 'rdx', 'r8', project.IMPORT_PROTOCOL),
+    "EFI_BOOT_SERVICES.OpenProtocol":
+        (_process_single_call, 'rdx', 'r8', project.IMPORT_PROTOCOL),
+    "EFI_BOOT_SERVICES.InstallProtocolInterface":
+        (_process_single_call, 'rdx', 'r9', project.EXPORT_PROTOCOL),
+    "EFI_SMM_RUNTIME_PROTOCOL.InstallProtocolInterface":
+        (_process_single_call, 'rdx', 'r9', project.EXPORT_PROTOCOL),
+    "EFI_BOOT_SERVICES.InstallMultipleProtocolInterfaces":
+        (_process_install_multiple_call, None, None, project.EXPORT_PROTOCOL),
+    "EFI_SMM_RUNTIME_PROTOCOL.InstallMultipleProtocolInterfaces":
+        (_process_install_multiple_call, None, None, project.EXPORT_PROTOCOL),
 }
