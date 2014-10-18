@@ -68,5 +68,3 @@ class Pointer(object):
 
     def get_bytes(self, cnt):
         return get_many_bytes(self.__ea, cnt)
-
-

@@ -39,7 +39,7 @@ class Structure:
         return self.name
 
     def __repr__(self):
-        return "Structure('%s', create_new=%b)" % (self.name, self._create_new)
+        return "Structure('%s')" % self.name
 
     def __iter__(self):
         # Check structure consistency
@@ -112,6 +112,9 @@ class StructureMember(object):
     def __str__(self):
         return "%s.%s @ 0x%X" % \
                (GetStrucName(self._sid), self.name, self.offset)
+
+    def __repr__(self):
+        return "StructureMember(%s, 0x%X)" % (GetStrucName(self._sid), self._offset)
 
     def __hash__(self):
         return self.mid
