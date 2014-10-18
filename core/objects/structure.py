@@ -2,7 +2,6 @@ from idaapi import *
 from idautils import *
 from idc import *
 
-
 from .pointer import Pointer
 
 
@@ -31,6 +30,11 @@ class Structure:
                             "structure name: the name is ill-formed "
                             "or is already used in the program.")
 
+    def __getitem__(self, item):
+        if type(item) is str:
+            return StructureMember(GetMemberOffset(self.__sid, item))
+        raise NotImplementedError
+
     def __str__(self):
         return self.name
 
@@ -56,6 +60,14 @@ class Structure:
     @property
     def sid(self):
         return self._sid
+
+    @property
+    def members_num(self):
+        return GetMemberQty(self._sid)
+
+    @property
+    def dummy(self):
+        return self.members_num == 1 and next(self.members()).name == "Dummy"
 
     def members(self):
         m_off = GetFirstMember(self._sid)
