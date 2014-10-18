@@ -5,6 +5,12 @@ over it.
 
 JB: The compiler used on the UDK2010 firmware installation automatically aligns 
 structure data members to 4 bytes. Ensure #pragma is set appropriately for a given structure. 
+
+Originally forked from:
+https://github.com/snarez/ida-efiutils
+
+See the following URL for more info and the latest version:
+https://github.com/danse-macabre/ida-efitools
 */
 
 #define EFIAPI
