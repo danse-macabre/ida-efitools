@@ -101,7 +101,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
         # Update any instruction with a displacement from our register
         for op in item.operands():
             if op.type in [o_displ, o_phrase] and tracks.get(op.reg):
-                if project.autogen_struct_prefix in tracks[op.reg].name:
+                if tracks[op.reg].dummy:
                     _guess_struct_field(item, op, tracks[op.reg])
                 OpStroffEx(item.ea, op.n, tracks[op.reg].sid, 0)
 
@@ -138,7 +138,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
                 if item[0].reg in rsp:
                     rsp.remove(item[0].reg)
                 if item[1].reg in rsp:
-                    lvar = _extract_lvar_from_op(function, item[1])
+                    lvar = find_object(function.frame.lvars(), name=item[1].displ_str)
                     tracks.update({item[0].reg: tracks.get(lvar)})
                 if tracks.get(item[1].reg) is not None and track_members:
                     base_struc = tracks[item[1].reg]
@@ -152,7 +152,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
             # mov [o_displ|o_phrase], o_reg
             elif item[0].type in [o_displ, o_phrase] and item[1].type == o_reg:
                 if item[0].reg in rsp:
-                    lvar = _extract_lvar_from_op(function, item[0])
+                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
                     if lvar is not None:
                         tracks.update({lvar: tracks[item[1].reg]})
                         if tracks[item[1].reg] is not None:
@@ -175,7 +175,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
             # lea [o_displ|o_phrase], whatever
             if item[0].type in [o_displ, o_phrase]:
                 if item[0].reg in rsp:
-                    lvar = _extract_lvar_from_op(function, item[0])
+                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
                     if lvar is not None:
                         tracks.update({lvar: None})
 
@@ -199,7 +199,7 @@ def _update_structs_from_tracks(start, tracks, processed_functions,
             # mnem [o_displ|o_phrase], whatever
             if item[0].type in [o_displ, o_phrase]:
                 if item[0].reg is not None and item[0].reg in rsp:
-                    lvar = _extract_lvar_from_op(function, item[0])
+                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
                     if lvar is not None:
                         tracks.update({lvar: None})
 
@@ -227,53 +227,30 @@ def _create_tracks():
     return dict((Register(reg), None) for reg in Register.REGS)
 
 
-def _extract_lvar_from_op(function, op):
-    lvar = None
-    if op.lvar is not None:
-        lvar = find_object(function.frame.lvars(), name=op.lvar.split('.')[0])
-    if lvar is not None:
-        return lvar
-    min_spd = GetSpd(GetMinSpd(function.start))
-    lvar_off = abs(min_spd) + op.displ
-    lvar = find_object(function.frame.lvars(), offset=lvar_off)
-    if lvar is not None:
-        return lvar
-    # print "Can not extract local variable name from operand %s at 0x%X" % (op, op.ea)
-
-
 def _guess_struct_field(item, op, struc):
-    if op.type == o_displ:
-        off = op.value
-    elif op.type == o_phrase:
-        if type(op.displ) is str and op.displ.endswith('.Dummy'):
-            off = 0
-        else:
-            try:
-                off = int(op.displ)
-            except ValueError:
-                print "Possibly already known field: %s" % op
-                return
-    else:
-        print "Do not know how to extract offset from operand: %s" % op
+    if op.displ_str is not None and not struc.dummy:
         return
+    
+    # if op.index_reg is not None:
+    #     raise Exception("Look at this: 0x%X" % op.ea)
 
-    member = find_object(struc.members(), offset=off)
-    if member is not None and member.name != "Dummy":
+    member = find_object(struc.members(), offset=op.displ)
+    if member is not None and not struc.dummy:
         return
 
     if item.mnem == 'call':
         member_size = 8
-        member_name = "Method_%X" % off
+        member_name = "Method_%X" % op.displ
 
     elif item.mnem == 'lea' and op.n == 1:
         member_size = 1
-        member_name = "Field_%X_lea" % off
+        member_name = "Field_%X_lea" % op.displ
 
-    elif item.mnem == 'mov':
+    else:
         another_op = item[abs(op.n - 1)]
         if another_op.type == o_reg:
             member_size = another_op.reg.size // 8
-        elif another_op.type == o_imm:
+        else:
             for ptr_str, bit_size in PTR_SIZE_BITS.items():
                 if ptr_str in str(another_op):
                     member_size = bit_size // 8
@@ -281,14 +258,7 @@ def _guess_struct_field(item, op, struc):
             else:
                 print "Can not determine pointer type for %s" % op
                 return
-        else:
-            print "Do not know how to handle operand" % op
-            return
-        member_name = "Field_%X" % off
+        member_name = "Field_%X" % op.displ
 
-    else:
-        print "Failed to guess %s field from %s" % (struc, item)
-        return
-
-    struc.add_member(off, member_name, member_size)
+    struc.add_member(op.displ, member_name, member_size)
 
