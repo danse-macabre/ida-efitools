@@ -47,9 +47,6 @@ class Function:
         lvar_size = GetFrameLvarSize(self.__start) - 8  # exclude return address
         return iter(takewhile(lambda x: x < lvar_size, self.frame))
 
-    def lvars(self):
-        pass
-
     def items(self, start=0, stop=None):
         if stop is None:
             stop = FindFuncEnd(self.__start)
