@@ -55,15 +55,6 @@ class _Operand:
         self.__ea = ea
         self.__n = n
 
-        if self.type == o_reg and str(self) != "":
-            self.__reg = Register(str(self))
-        elif self.type in [o_phrase, o_displ] and str(self) != "":
-            name = _REG_FROM_DISPL_RE.match(str(self)).group(1)
-            self.__reg = Register(name)
-        else:
-            self.__reg = None
-
-
     def __str__(self):
         return GetOpnd(self.__ea, self.__n)
 
@@ -83,50 +74,94 @@ class _Operand:
 
     @property
     def type(self):
-        return GetOpType(self.__ea, self.__n)
+        return _OperandType(GetOpType(self.__ea, self.__n))
 
     @property
     def value(self):
-        return GetOperandValue(self.__ea, self.__n)
+        # operand is an immediate value  => immediate value
+        # operand has a displacement     => displacement
+        # operand is a direct memory ref => memory address
+        # operand is a register          => register number
+        # operand is a register phrase   => phrase number
+        # otherwise                      => -1
+        value = GetOperandValue(self.__ea, self.__n)
+        if value == -1:
+            raise Exception("GetOperandValue() for %s has failed" % self)
+        return value
 
     @property
     def reg(self):
-        return self.__reg
-
-    @property
-    def displ(self):
-        if self.type == o_displ:
-            value = self.value
-            off_str = _OFF_FROM_DISPL_RE.match(str(self)).group(1)
-            if off_str.startswith("-"):
-                value *= -1
-            return value
-        if self.type == o_phrase:
-            try:
-                return _OFF_FROM_DISPL_RE.match(str(self)).group(1)
-            except AttributeError:
-                return 0
+        if self.type == o_reg and str(self) != "":
+            return Register(str(self))
+        elif self.type in [o_phrase, o_displ] and str(self) != "":
+            name = _REG_FROM_DISPL_RE.match(str(self)).group(1)
+            return Register(name)
         else:
             return None
 
     @property
-    def lvar(self):
+    def displ(self):
         if self.type == o_displ:
-            try:
-                return _LVAR_FROM_DISPL_RE.match(str(self)).group(2)
-            except AttributeError:
-                pass
-        return None
+            return self.value
+        elif self.type == o_phrase:
+            return 0
+        else:
+            return None
 
     @property
-    def stroff(self):
-        if self.type in [o_displ, o_phrase]:
-            try:
-                return _LVAR_FROM_DISPL_RE.match(str(self)).group(2)
-            except AttributeError:
-                pass
-        return None
+    def index_reg(self):
+        if "(" in str(self):
+            return None
+        try:
+            return _INDEX_REG_FROM_PHRASE_RE.match(str(self)).group(1)
+        except AttributeError:
+            return None
+
+    @property
+    def displ_str(self):
+        if "(" in str(self):
+            return None
+        try:
+            return _DISPL_STR_FROM_DISPL_RE.match(str(self)).group(2)
+        except AttributeError:
+            return None
+
+
+class _OperandType:
+
+    def __init__(self, op_type):
+        self.__op_type = op_type
+
+    def __str__(self):
+        return _OP_TYPE_STR[self.__op_type]
+
+    def __repr__(self):
+        return "_OperandType(%d)" % self.__op_type
+
+    def __hash__(self):
+        return self.__op_type
+
+    def __cmp__(self, other):
+        if isinstance(other, _OperandType):
+            return cmp(self.__op_type, other.__op_type)
+        elif type(other) is int:
+            return cmp(self.__op_type, other)
+        raise NotImplementedError
+
 
 _REG_FROM_DISPL_RE = re.compile(r'.*\[([a-z0-9]*)')
-_OFF_FROM_DISPL_RE = re.compile(r'.*?\[.*?([\+\-].*?)]')
-_LVAR_FROM_DISPL_RE = re.compile(r'.*?\[\w*([\+\-][0-9A-F]*h?)?[\+\-]([\w\.]*)\]')
+_INDEX_REG_FROM_PHRASE_RE = re.compile(r'.*\[[a-z0-9]*([\+\-].*?)[\+\-]+')
+_DISPL_STR_FROM_DISPL_RE = re.compile(r'.*?\[.*?([\+\-].*)?[\+\-](.*)\]')
+# _OFF_FROM_DISPL_RE = re.compile(r'.*?\[.*?([\+\-].*?)]')
+# _LVAR_FROM_DISPL_RE = re.compile(r'.*?\[\w*([\+\-][0-9A-F]*h?)?[\+\-]([\w\.]*)\]')
+
+_OP_TYPE_STR = {
+    0: "o_void",
+    1: "o_reg",
+    2: "o_mem",
+    3: "o_phrase",
+    4: "o_displ",
+    5: "o_imm",
+    6: "o_far",
+    7: "o_near",
+}
