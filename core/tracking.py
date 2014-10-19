@@ -77,6 +77,9 @@ def start_track(start, track, types_to_track, **kwargs):
                         if leave_comments:
                             _make_comment(track, item, lvar, track.get(item[1].reg))
 
+            elif item[0].type == o_reg:
+                _update_track(track, item[0].reg, None)
+
         elif item.mnem == 'lea':
 
             # lea o_reg, whatever
