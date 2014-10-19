@@ -1,8 +1,8 @@
 REG_SIZE = {
-    "rax": 64, "eax": 32, "ax": 16, "al": 8,
-    "rbx": 64, "ebx": 32, "bx": 16, "bl": 8,
-    "rcx": 64, "ecx": 32, "cx": 16, "cl": 8,
-    "rdx": 64, "edx": 32, "dx": 16, "dl": 8,
+    "rax": 64, "eax": 32, "ax": 16, "ah": 8, "al": 8,
+    "rbx": 64, "ebx": 32, "bx": 16, "bh": 8, "bl": 8,
+    "rcx": 64, "ecx": 32, "cx": 16, "ch": 8, "cl": 8,
+    "rdx": 64, "edx": 32, "dx": 16, "dh": 8, "dl": 8,
     "rsi": 64, "esi": 32, "si": 16, "sil": 8,
     "rdi": 64, "edi": 32, "di": 16, "dil": 8,
     "rbp": 64, "ebp": 32, "bp": 16, "bpl": 8,
