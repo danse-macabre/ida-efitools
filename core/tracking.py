@@ -29,6 +29,7 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
     skip_functions.append(function)
 
     rsp = [Register('rsp')]
+    has_jumps = False
 
     for item in function.items(start):
 
@@ -101,8 +102,14 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
             else:
                 _purge_volatile_states(track)
 
+        elif item.mnem == 'jmp':
+            has_jumps = True
+
         if not any(map(lambda x: x.__class__ in types_to_track, track)):
             break
+
+    if has_jumps:
+        _purge_volatile_states(track)
 
 
 def _update_track(track, old, new):
