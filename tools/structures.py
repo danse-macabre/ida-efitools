@@ -6,22 +6,44 @@ from idc import *
 from core import project
 from core.objects import *
 from core.utils import *
+from core.tracking import *
 
 
-_tab_lvl = 0
+def update_structs_from_regs(function, **reg_struc):
 
+    track = start_track(function,
+                        dict((Register(reg), struc)
+                             for reg, struc in reg_struc),
+                        types_to_track=(Register, Structure,
+                                        StructureMember, Pointer),
+                        allow_members=True,
+                        stubborn_tracking=True,
+                        leave_comments=True)
 
-def update_structs_from_regs(function, track_members=True,
-                             stubborn_tracks=True, **reg_struc):
-    tracks = dict((Register(reg), None) for reg in Register.REGS)
+    for item, track in track:
 
-    for reg, struc in reg_struc.items():
-        tracks.update({Register(reg): struc})
+        for op in item.operands():
+            if op.type in [o_displ, o_phrase] and op.reg in track and \
+                    isinstance(track[op.reg], Structure):
+                if track[op.reg].dummy:
+                    _guess_struct_field(item, op, track[op.reg])
+                OpStroff(item.ea, op.n, track[op.reg].sid)
 
-    processed_functions = list()
+        for obj, state in track.items():
 
-    _update_structs_from_tracks(function, tracks, processed_functions,
-                                track_members, stubborn_tracks)
+            if isinstance(obj, Pointer) and isinstance(state, Structure):
+                obj.name = underscore_to_global(state.name)
+                obj.type = state.name + " *"
+                track.pop(obj)
+
+            if isinstance(state, StructureMember):
+                if state.type is not None and \
+                        is_structure_type(state.type.rstrip(" *")):
+                    struc = Structure(state.type.rstrip(" *"))
+                    if isinstance(obj, Pointer):
+                        obj.name = underscore_to_global(struc.name)
+                        obj.type = struc.name + " *"
+                    track[obj] = struc
 
 
 def update_structs_from_xrefs(track_members=True):
