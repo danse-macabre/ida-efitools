@@ -66,6 +66,10 @@ class Structure:
         return GetMemberQty(self._sid)
 
     @property
+    def size(self):
+        return GetStrucSize(self._sid)
+
+    @property
     def dummy(self):
         return self.members_num == 1 and next(self.members()).name == "Dummy"
 
