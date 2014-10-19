@@ -6,22 +6,21 @@ from idc import *
 from core import project
 from core.objects import *
 from core.utils import *
+from core.tracking import *
 
 
-_tab_lvl = 0
+def update_structs_from_regs(function, **reg_struc):
 
+    track = start_track(function,
+                        dict((Register(reg), struc)
+                             for reg, struc in reg_struc.items()),
+                        types_to_track=(Register, Structure,
+                                        StructureMember, Pointer),
+                        allow_members=True,
+                        stubborn_tracking=True,
+                        leave_comments=True)
 
-def update_structs_from_regs(function, track_members=True,
-                             stubborn_tracks=True, **reg_struc):
-    tracks = dict((Register(reg), None) for reg in Register.REGS)
-
-    for reg, struc in reg_struc.items():
-        tracks.update({Register(reg): struc})
-
-    processed_functions = list()
-
-    _update_structs_from_tracks(function, tracks, processed_functions,
-                                track_members, stubborn_tracks)
+    _update_structs_from_track(track)
 
 
 def update_structs_from_xrefs(track_members=True):
@@ -51,180 +50,60 @@ def update_structs_from_xrefs(track_members=True):
 
 
 def update_struct_from_lvar(start, lvar, struc, track_members=True):
-    tracks = _create_tracks()
-    tracks[lvar] = struc
-    processed_functions = list()
-    _update_structs_from_tracks(start, tracks, processed_functions,
-                                track_members, stubborn_tracks=False)
+    print "Working on lvar %s at 0x%X" % (lvar, start)
+    track = start_track(start,
+                        {lvar: struc},
+                        types_to_track=(Register, Structure,
+                                        StructureMember, LocalVariable),
+                        allow_members=True,
+                        stubborn_tracking=False,
+                        leave_comments=True)
+    _update_structs_from_track(track)
 
 
 def _update_from_ptr(ptr, struc, track_members):
     for xref in map(lambda x: Instruction(x), DataRefsTo(ptr.addr)):
         if xref.mnem == 'mov' and xref[0].type == o_reg and \
                 xref[1].type == o_mem:
-            tracks = _create_tracks()
-            processed_functions = list()
             if xref[0].type == o_reg:
                 print "Working on xref: %s" % xref
-                tracks.update({xref[0].reg: struc})
-                _update_structs_from_tracks(NextAddr(xref.ea), tracks, processed_functions,
-                                            track_members, stubborn_tracks=False)
+                track = start_track(NextAddr(xref.ea),
+                                    {xref[0].reg: struc},
+                                    types_to_track=(Register, Structure,
+                                                    StructureMember),
+                                    allow_members=True,
+                                    stubborn_tracking=False,
+                                    leave_comments=True)
+                _update_structs_from_track(track)
             else:
                 print "Skipping xref: %s" % xref
 
 
-def _update_structs_from_tracks(start, tracks, processed_functions,
-                                track_members, stubborn_tracks):
-    rsp = [Register('rsp')]
-    preserved_tracks = {}
+def _update_structs_from_track(track):
+    for item, track in track:
 
-    try:
-        function = Function(start)
-    except ValueError:
-        print "Attempt to update structure " \
-              "offsets in non-function at 0x%X" % start
-        return
-
-    if function in processed_functions:
-        #print "Leaving already processed function %s" % function
-        return
-
-    processed_functions.append(function)
-
-    for item in function.items(start):
-
-        # Track rsp copies
-        if item.mnem == 'mov' and item[0].type == o_reg and \
-                item[1].type == o_reg and item[1].reg in rsp:
-            rsp.append(item[0].reg)
-
-        # Update any instruction with a displacement from our register
         for op in item.operands():
-            if op.type in [o_displ, o_phrase] and tracks.get(op.reg):
-                if tracks[op.reg].dummy:
-                    _guess_struct_field(item, op, tracks[op.reg])
-                OpStroffEx(item.ea, op.n, tracks[op.reg].sid, 0)
+            if op.type in [o_displ, o_phrase] and op.reg in track and \
+                    isinstance(track[op.reg], Structure):
+                if track[op.reg].dummy:
+                    _guess_struct_field(item, op, track[op.reg])
+                OpStroff(item.ea, op.n, track[op.reg].sid)
 
-        if item.mnem == 'mov':
+        for obj, state in track.items():
 
-            # mov o_reg, o_reg
-            if item[0].type == o_reg and item[1].type == o_reg:
-                tracks.update({item[0].reg: tracks[item[1].reg]})
-                if tracks.get(item[0].reg) is not None:
-                    comm = "%s <- %s" % (item[0].reg, tracks[item[1].reg])
-                    MakeComm(item.ea, comm)
+            if isinstance(obj, Pointer) and isinstance(state, Structure):
+                obj.name = underscore_to_global(state.name)
+                obj.type = state.name + " *"
+                track.pop(obj)
 
-            # mov o_mem, o_reg
-            elif item[0].type == o_mem and item[1].type == o_reg:
-                if tracks.get(item[1].reg) is not None:
-                    ptr = Pointer(item[0].value)
-                    struc = tracks[item[1].reg]
-                    ptr.name = underscore_to_global(struc.name)
-                    ptr.type = struc.name + " *"
-                    pass
-
-            # mov o_reg, o_mem
-            elif item[0].type == o_reg and item[1].type == o_mem:
-                ptr = Pointer(item[1].value)
-                ptr_base_type = ptr.type.rstrip(" *")
-                if stubborn_tracks and is_structure_type(ptr_base_type):
-                    struc = Structure(ptr_base_type, create_new=False)
-                    tracks.update({item[0].reg: struc})
-                else:
-                    tracks.update({item[0].reg: None})
-
-            # mov o_reg, [o_displ|o_phrase]
-            elif item[0].type == o_reg and item[1].type in [o_displ, o_phrase]:
-                if item[0].reg in rsp:
-                    rsp.remove(item[0].reg)
-                if item[1].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[1].displ_str)
-                    tracks.update({item[0].reg: tracks.get(lvar)})
-                if tracks.get(item[1].reg) is not None and track_members:
-                    base_struc = tracks[item[1].reg]
-                    off = item[1].displ
-                    member = find_object(base_struc.members(), offset=off)
-                    if member and member.type is not None and \
-                            is_structure_type(member.type.rstrip(" *")):
-                        tracks.update({item[0].reg:
-                                      Structure(member.type.rstrip(" *"))})
-
-            # mov [o_displ|o_phrase], o_reg
-            elif item[0].type in [o_displ, o_phrase] and item[1].type == o_reg:
-                if item[0].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
-                    if lvar is not None:
-                        tracks.update({lvar: tracks[item[1].reg]})
-                        if tracks[item[1].reg] is not None:
-                            lvar.name = \
-                                underscore_to_global(tracks[item[1].reg].name)\
-                                .lstrip("g")
-                else:
-                    pass  # Nothing to do here
-
-            # mov o_reg, whatever
-            elif item[0].type == o_reg:
-                tracks.update({item[0].reg: None})
-
-        elif item.mnem == 'lea':
-
-            # lea o_reg, whatever
-            if item[0].type == o_reg:
-                tracks.update({item[0].reg: None})
-
-            # lea [o_displ|o_phrase], whatever
-            if item[0].type in [o_displ, o_phrase]:
-                if item[0].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
-                    if lvar is not None:
-                        tracks.update({lvar: None})
-
-        elif item.mnem == 'call':
-            if item[0].type in [o_imm, o_far, o_near]:
-                _preserve_tracks(tracks, preserved_tracks)
-                _update_structs_from_tracks(item[0].value, tracks, processed_functions,
-                                            track_members, stubborn_tracks)
-                _restore_tracks(tracks, preserved_tracks)
-            else:
-                for reg in filter(lambda x: isinstance(x, Register), tracks):
-                    if reg.volatile:
-                        tracks[reg] = None
-
-        elif item.mnem not in ['cmp', 'test'] and item.operands_num > 0:
-
-            # mnem o_reg, whatever
-            if item[0].type == o_reg and item[0].reg is not None:
-                tracks.update({item[0].reg: None})
-
-            # mnem [o_displ|o_phrase], whatever
-            if item[0].type in [o_displ, o_phrase]:
-                if item[0].reg is not None and item[0].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
-                    if lvar is not None:
-                        tracks.update({lvar: None})
-
-        if not (stubborn_tracks or any(tracks.values())):
-            # print "Lost tracks at 0x%X in %s" % (item.ea, function)
-            break
-
-
-def _preserve_tracks(tracks, preserved_tracks):
-    preserved_tracks = {}
-    for track in tracks:
-        if isinstance(track, Register):
-            if not track.volatile:
-                preserved_tracks.update({track: tracks[track]})
-        elif isinstance(track, LocalVariable):
-            preserved_tracks.update({track: tracks[track]})
-
-
-def _restore_tracks(tracks, preserved_tracks):
-    for track in preserved_tracks:
-        tracks.update({track: preserved_tracks[track]})
-
-
-def _create_tracks():
-    return dict((Register(reg), None) for reg in Register.REGS)
+            if isinstance(state, StructureMember):
+                if state.type is not None and \
+                        is_structure_type(state.type.rstrip(" *")):
+                    struc = Structure(state.type.rstrip(" *"))
+                    if isinstance(obj, Pointer):
+                        obj.name = underscore_to_global(struc.name)
+                        obj.type = struc.name + " *"
+                    track[obj] = struc
 
 
 def _guess_struct_field(item, op, struc):
