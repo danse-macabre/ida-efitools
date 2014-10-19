@@ -50,11 +50,15 @@ def update_structs_from_xrefs(track_members=True):
 
 
 def update_struct_from_lvar(start, lvar, struc, track_members=True):
-    tracks = _create_tracks()
-    tracks[lvar] = struc
-    processed_functions = list()
-    _update_structs_from_tracks(start, tracks, processed_functions,
-                                track_members, stubborn_tracks=False)
+    print "Working on lvar %s at 0x%X" % (lvar, start)
+    track = start_track(start,
+                        {lvar: struc},
+                        types_to_track=(Register, Structure,
+                                        StructureMember, LocalVariable),
+                        allow_members=True,
+                        stubborn_tracking=False,
+                        leave_comments=True)
+    _update_structs_from_track(track)
 
 
 def _update_from_ptr(ptr, struc, track_members):
