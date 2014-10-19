@@ -10,6 +10,7 @@ from core.utils import *
 def start_track(start, track, types_to_track, **kwargs):
     leave_comments = kwargs.get('leave_comments', False)
     stubborn_tracking = kwargs.get('stubborn_tracking', False)
+    allow_members = kwargs.get('allow_members', False)
 
     try:
         function = Function(start)
@@ -59,7 +60,7 @@ def start_track(start, track, types_to_track, **kwargs):
                     _update_track(track, item[0].reg, lvar)
                     if leave_comments:
                         _make_comment(track, item, item[0].reg, lvar)
-                if item[1].reg in track and \
+                if allow_members and item[1].reg in track and \
                         isinstance(track[item[1].reg], Structure) and \
                         StructureMember in types_to_track:
                     member = find_object(track[item[1].reg].members(),
