@@ -16,6 +16,7 @@ def start_track(start, track, types_to_track, **kwargs):
 
 def _do_track(start, track, types_to_track, skip_functions, **kwargs):
     allow_members = kwargs.get('allow_members', False)
+    die_hard = kwargs.get('die_hard', False)
 
     try:
         function = Function(start)
@@ -105,11 +106,14 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
         elif item.mnem == 'jmp':
             has_jumps = True
 
-        if not any(map(lambda x: x.__class__ in types_to_track, track)):
+        if not (die_hard or any(map(lambda x: x.__class__ in
+                                    types_to_track, track))):
             break
 
     if has_jumps:
         _purge_volatile_states(track)
+
+    _purge_local_variables(track)
 
 
 def _update_track(track, old, new):
@@ -136,6 +140,10 @@ def _purge_volatile_states(track):
     for obj in filter(lambda x: isinstance(x, Register) and x.volatile, track):
         _update_track(track, obj, None)
 
+
+def _purge_local_variables(track):
+    for obj in filter(lambda x: isinstance(x, LocalVariable) and x.volatile, track):
+        _update_track(track, obj, None)
 
 def _restore_track(track, preserved):
     for obj, state in preserved.items():
