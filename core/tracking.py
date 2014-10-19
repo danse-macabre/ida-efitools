@@ -18,6 +18,9 @@ class EffectiveAddr:
     def __repr__(self):
         return "EffectiveAddr(%s)" % repr(self.__op)
 
+    def __hash__(self):
+        return hash(self.__op)
+
     @property
     def op(self):
         return self.__op
@@ -33,6 +36,16 @@ class ImmediateValue:
 
     def __repr__(self):
         return "ImmediateValue(%s)" % repr(self.__value)
+
+    def __hash__(self):
+        return hash(self.__value)
+
+    def __cmp__(self, other):
+        if isinstance(other, ImmediateValue):
+            return cmp(self.__value, other.__value)
+        elif type(other) is int:
+            return cmp(self.__value, other)
+        raise NotImplementedError
 
     @property
     def value(self):
