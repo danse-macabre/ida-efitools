@@ -23,6 +23,22 @@ class EffectiveAddr:
         return self.__op
 
 
+class ImmediateValue:
+
+    def __init__(self, value):
+        self.__value = value
+
+    def __str__(self):
+        return str(self.__value)
+
+    def __repr__(self):
+        return "ImmediateValue(%s)" % repr(self.__value)
+
+    @property
+    def value(self):
+        return self.__value
+
+
 def start_track(start, track, types_to_track, **kwargs):
     skip_functions = []
     for item, track in _do_track(start, track, types_to_track,
@@ -91,8 +107,17 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
                     if lvar is not None:
                         _update_track(track, lvar, item[1].reg)
 
-            elif item[0].type == o_reg:
-                _update_track(track, item[0].reg, None)
+            # mov o_reg, o_imm
+            elif item[0].type == o_reg and item[1].type == o_imm:
+                _update_track(track, item[0].reg,
+                              ImmediateValue(item[1].value))
+
+            # mov [o_displ|o_phrase], o_reg
+            elif item[0].type in [o_displ, o_phrase] and item[1].type == o_reg:
+                if item[0].reg in rsp:
+                    lvar = find_object(function.frame, name=item[0].displ_str)
+                    if lvar is not None:
+                        _update_track(track, lvar, ImmediateValue(item[1].value))
 
         elif item.mnem == 'lea':
 
