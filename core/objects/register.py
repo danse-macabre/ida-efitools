@@ -19,10 +19,10 @@ REG_SIZE = {
 }
 
 REG_GROUPS = (
-    ("rax", "eax", "ax", "al",),
-    ("rbx", "ebx", "bx", "bl",),
-    ("rcx", "ecx", "cx", "cl",),
-    ("rdx", "edx", "dx", "dl",),
+    ("rax", "eax", "ax", "ah", "al",),
+    ("rbx", "ebx", "bx", "bh", "bl",),
+    ("rcx", "ecx", "cx", "ch", "cl",),
+    ("rdx", "edx", "dx", "dh", "dl",),
     ("rsi", "esi", "si", "sil",),
     ("rdi", "edi", "di", "dil",),
     ("rbp", "ebp", "bp", "bpl",),
