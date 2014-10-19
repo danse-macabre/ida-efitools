@@ -8,8 +8,14 @@ from core.utils import *
 
 
 def start_track(start, track, types_to_track, **kwargs):
+    skip_functions = []
+    for item, track in _do_track(start, track, types_to_track,
+                                 skip_functions, **kwargs):
+        yield item, track
+
+
+def _do_track(start, track, types_to_track, skip_functions, **kwargs):
     leave_comments = kwargs.get('leave_comments', False)
-    stubborn_tracking = kwargs.get('stubborn_tracking', False)
     allow_members = kwargs.get('allow_members', False)
 
     try:
@@ -17,6 +23,11 @@ def start_track(start, track, types_to_track, **kwargs):
     except ValueError:
         print "Attempt to track objects in non-function at 0x%X" % start
         return
+
+    if function in skip_functions:
+        return
+
+    skip_functions.append(function)
 
     rsp = [Register('rsp')]
 
@@ -98,14 +109,15 @@ def start_track(start, track, types_to_track, **kwargs):
             if item[0].type in [o_imm, o_far, o_near]:
                 preserved = _preserve_track(track)
                 callee_track = _build_callee_track(track)
-                for item, track in start_track(item[0].value, callee_track,
-                                                  types_to_track, **kwargs):
+                for item, track in _do_track(item[0].value, callee_track,
+                                             types_to_track, skip_functions,
+                                             **kwargs):
                     yield item, track
                 _restore_track(track, preserved)
             else:
                 _purge_volatile_states(track)
 
-        if not (stubborn_tracking or track):
+        if not any(map(lambda x: x.__class__ in types_to_track, track)):
             break
 
 
