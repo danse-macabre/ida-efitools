@@ -24,6 +24,14 @@ class Instruction:
     def __repr__(self):
         return "Instruction(0x%X)" % self.__ea
 
+    def __hash__(self):
+        return self.__ea
+
+    def __cmp__(self, other):
+        if isinstance(other, Instruction):
+            return cmp(self.__ea, other.__ea)
+        raise NotImplementedError
+
     @property
     def ea(self):
         return self.__ea
