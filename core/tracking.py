@@ -7,6 +7,22 @@ from core.objects import *
 from core.utils import *
 
 
+class EffectiveAddr:
+
+    def __init__(self, op):
+        self.__op = op
+
+    def __str__(self):
+        return str(self.__op)
+
+    def __repr__(self):
+        return "EffectiveAddr(%s)" % repr(self.__op)
+
+    @property
+    def op(self):
+        return self.__op
+
+
 def start_track(start, track, types_to_track, **kwargs):
     skip_functions = []
     for item, track in _do_track(start, track, types_to_track,
@@ -82,14 +98,14 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
 
             # lea o_reg, whatever
             if item[0].type == o_reg:
-                _update_track(track, item[0].reg, None)
+                _update_track(track, item[0].reg, EffectiveAddr(item[1]))
 
             # lea [o_displ|o_phrase], whatever
             if item[0].type in [o_displ, o_phrase]:
                 if item[0].reg in rsp:
                     lvar = find_object(function.frame, name=item[0].displ_str)
                     if lvar in track:
-                        _update_track(track, lvar, None)
+                        _update_track(track, lvar, EffectiveAddr(item[1]))
 
         elif item.mnem == 'call':
             if item[0].type in [o_imm, o_far, o_near]:
@@ -142,8 +158,9 @@ def _purge_volatile_states(track):
 
 
 def _purge_local_variables(track):
-    for obj in filter(lambda x: isinstance(x, LocalVariable) and x.volatile, track):
+    for obj in filter(lambda x: isinstance(x, LocalVariable), track):
         _update_track(track, obj, None)
+
 
 def _restore_track(track, preserved):
     for obj, state in preserved.items():
