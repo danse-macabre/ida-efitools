@@ -61,13 +61,16 @@ def _update_from_ptr(ptr, struc, track_members):
     for xref in map(lambda x: Instruction(x), DataRefsTo(ptr.addr)):
         if xref.mnem == 'mov' and xref[0].type == o_reg and \
                 xref[1].type == o_mem:
-            tracks = _create_tracks()
-            processed_functions = list()
             if xref[0].type == o_reg:
                 print "Working on xref: %s" % xref
-                tracks.update({xref[0].reg: struc})
-                _update_structs_from_tracks(NextAddr(xref.ea), tracks, processed_functions,
-                                            track_members, stubborn_tracks=False)
+                track = start_track(NextAddr(xref.ea),
+                                    {xref[0].reg: struc},
+                                    types_to_track=(Register, Structure,
+                                                    StructureMember),
+                                    allow_members=True,
+                                    stubborn_tracking=False,
+                                    leave_comments=True)
+                _update_structs_from_track(track)
             else:
                 print "Skipping xref: %s" % xref
 
