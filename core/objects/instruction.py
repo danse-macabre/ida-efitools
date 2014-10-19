@@ -19,7 +19,7 @@ class Instruction:
         return None
 
     def __str__(self):
-        return "%s @ 0x%X" % (GetDisasm(self.__ea), self.__ea)
+        return "%s @ 0x%X" % (GetDisasm(self.__ea).split(";")[0], self.__ea)
 
     def __repr__(self):
         return "Instruction(0x%X)" % self.__ea
