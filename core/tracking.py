@@ -67,7 +67,7 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
                 if item[0].reg in rsp:
                     rsp.remove(item[0].reg)
                 if item[1].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[1].displ_str)
+                    lvar = find_object(function.frame, name=item[1].displ_str)
                     _update_track(track, item[0].reg, lvar)
                     if leave_comments:
                         _make_comment(track, item, item[0].reg, lvar)
@@ -83,7 +83,7 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
             # mov [o_displ|o_phrase], o_reg
             elif item[0].type in [o_displ, o_phrase] and item[1].type == o_reg:
                 if item[0].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
+                    lvar = find_object(function.frame, name=item[0].displ_str)
                     if lvar is not None:
                         _update_track(track, lvar, item[1].reg)
                         if leave_comments:
@@ -101,7 +101,7 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
             # lea [o_displ|o_phrase], whatever
             if item[0].type in [o_displ, o_phrase]:
                 if item[0].reg in rsp:
-                    lvar = find_object(function.frame.lvars(), name=item[0].displ_str)
+                    lvar = find_object(function.frame, name=item[0].displ_str)
                     if lvar in track:
                         _update_track(track, lvar, None)
 

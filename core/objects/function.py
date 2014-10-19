@@ -70,7 +70,7 @@ class Function:
 
 class FunctionFrame(Structure):
 
-    def lvars(self):
+    def __iter__(self):
         m_off = GetFirstMember(self._sid)
         while m_off != BADADDR and m_off != -1:
             if GetMemberFlag(self._sid, m_off) != -1:
