@@ -16,9 +16,7 @@ def update_structs_from_regs(function, **reg_struc):
                              for reg, struc in reg_struc.items()),
                         types_to_track=(Register, Structure,
                                         StructureMember, Pointer),
-                        allow_members=True,
-                        stubborn_tracking=True,
-                        leave_comments=True)
+                        allow_members=True)
 
     _update_structs_from_track(track)
 
@@ -55,9 +53,7 @@ def update_struct_from_lvar(start, lvar, struc, track_members=True):
                         {lvar: struc},
                         types_to_track=(Register, Structure,
                                         StructureMember, LocalVariable),
-                        allow_members=True,
-                        stubborn_tracking=False,
-                        leave_comments=True)
+                        allow_members=True)
     _update_structs_from_track(track)
 
 
@@ -71,9 +67,7 @@ def _update_from_ptr(ptr, struc, track_members):
                                     {xref[0].reg: struc},
                                     types_to_track=(Register, Structure,
                                                     StructureMember),
-                                    allow_members=True,
-                                    stubborn_tracking=False,
-                                    leave_comments=True)
+                                    allow_members=True)
                 _update_structs_from_track(track)
             else:
                 print "Skipping xref: %s" % xref
