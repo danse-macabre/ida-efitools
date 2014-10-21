@@ -143,7 +143,8 @@ def _do_track(start, track, types_to_track, skip_functions, **kwargs):
 
 
 def _update_track(track, old, new):
-    if new in track:
+    if not isinstance(new, ImmediateValue) and \
+            new in track:
         track[old] = track[new]
     elif new is not None:
         track[old] = new
