@@ -7,51 +7,6 @@ from core.objects import *
 from core.utils import *
 
 
-class EffectiveAddr:
-
-    def __init__(self, op):
-        self.__op = op
-
-    def __str__(self):
-        return str(self.__op)
-
-    def __repr__(self):
-        return "EffectiveAddr(%s)" % repr(self.__op)
-
-    def __hash__(self):
-        return hash(self.__op)
-
-    @property
-    def op(self):
-        return self.__op
-
-
-class ImmediateValue:
-
-    def __init__(self, value):
-        self.__value = value
-
-    def __str__(self):
-        return str(self.__value)
-
-    def __repr__(self):
-        return "ImmediateValue(%s)" % repr(self.__value)
-
-    def __hash__(self):
-        return hash(self.__value)
-
-    def __cmp__(self, other):
-        if isinstance(other, ImmediateValue):
-            return cmp(self.__value, other.__value)
-        elif type(other) is int:
-            return cmp(self.__value, other)
-        raise NotImplementedError
-
-    @property
-    def value(self):
-        return self.__value
-
-
 def start_track(start, track, types_to_track, **kwargs):
     skip_functions = []
     for item, track in _do_track(start, track, types_to_track,
