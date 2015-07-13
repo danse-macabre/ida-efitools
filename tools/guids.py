@@ -26,8 +26,8 @@ def _process_segment(seg_beg, seg_end):
         if guid_bytes_le != _zero_guid_bytes and guid_bytes_le != _ffff_guid_bytes:
             guid_name = _guids_db.get(guid_bytes_le, None)
             if guid_name:
-                GUID(addr=addr, name=guid_name)
-
+                guid = GUID(addr=addr, name=guid_name)
+                print "Found %s @ 0x%X" % (guid, addr)
 
 _zero_guid_bytes = b''.join(repeat(b'\x00', 16))
 _ffff_guid_bytes = b''.join(repeat(b'\xFF', 16))

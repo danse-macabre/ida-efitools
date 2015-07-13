@@ -33,7 +33,7 @@ class GUID:
         return UUID(bytes_le=self.data)
 
     def __str__(self):
-        return "%s {%s}" % (self.name, self.as_uuid())
+        return "{%s} %s" % (self.as_uuid(), self.name)
 
     def __hash__(self):
         return hash(self.data)
