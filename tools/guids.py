@@ -9,9 +9,13 @@ from idc import *
 from core.objects import GUID, Pointer
 
 
-def update_guids(path_to_db):
+def update_guids(path_to_db, seg_types=None):
     _load_guids_db(path_to_db)
-    for seg_beg in filter(lambda x: getseg(x).type == SEG_DATA, Segments()):
+    if seg_types:
+        filter_expr = lambda x: getseg(x).type in seg_types
+    else:
+        filter_expr = None
+    for seg_beg in filter(filter_expr, Segments()):
         seg_end = SegEnd(seg_beg)
         _process_segment(seg_beg, seg_end)
 
