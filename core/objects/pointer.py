@@ -48,7 +48,7 @@ class Pointer(object):
             value = "%s_%d" % (value, Pointer.USED_NAMES[value] - 1)
         else:
             Pointer.USED_NAMES.update({value: 0})
-        if MakeName(self.__ea, value) != 1:
+        if MakeNameEx(self.__ea, value, SN_PUBLIC) != 1:
             raise Exception("MakeName(0x%X, '%s') has failed" % (self.__ea, value))
 
     @property
